@@ -1,7 +1,7 @@
 """
-Q4 starter: Logistic Regression with Feature Engineering
+Q8 starter: Logistic Regression with Feature Engineering
 
-Submit this file as q4_logreg_starter.py.
+Submit this file as q8_logreg_starter.py.
 
 You may use NumPy only for the model implementation. Do not use
 sklearn or automatic differentiation.

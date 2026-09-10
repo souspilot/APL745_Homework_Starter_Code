@@ -1,10 +1,10 @@
 """
-Public tests for Q4.
+Public tests for Q8.
 
 Run:
-    python q4_public_tests.py
+    python q8_public_tests.py
 
-The tests import the student's q4_logreg_starter.py and check:
+The tests import the student's q8_logreg_starter.py and check:
 1. the required feature map;
 2. basic model API and probability output;
 3. that logistic regression can learn the engineered von Mises boundary
@@ -16,7 +16,7 @@ third data file is required.
 
 import numpy as np
 
-from HW1.q4_logreg_starter import LogisticRegression, featurize
+from HW1.q8_logreg_starter import LogisticRegression, featurize
 
 
 def make_validation_data(n=600, seed=123):

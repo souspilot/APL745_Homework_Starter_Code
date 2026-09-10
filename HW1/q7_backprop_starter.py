@@ -1,5 +1,5 @@
 """
-APL 745 -- Question 3 starter code
+APL 745 -- Question 7 starter code
 Backpropagation on a Neural Network with a Convex Hidden Path
 
 Implement:

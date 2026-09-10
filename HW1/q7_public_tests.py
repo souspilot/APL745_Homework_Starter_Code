@@ -1,5 +1,5 @@
 """
-APL 745 -- Question 3 public tests
+APL 745 -- Question 7 public tests
 
 The tests check:
     1. forward pass
@@ -10,7 +10,7 @@ The tests check:
 
 import numpy as np
 
-from HW1.q3_backprop_starter import NeuralNetwork, softplus, sigmoid
+from HW1.q7_backprop_starter import NeuralNetwork, softplus, sigmoid
 
 
 def numerical_gradient(model, X, y, name, h=1e-6):
