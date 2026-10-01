@@ -1,0 +1,9 @@
+# Keep source audio, private mapping, and generated distribution files out of git.
+original_dataset/
+instructor_private/
+student_release/dataset/
+student_release/ATTRIBUTION.txt
+HW2_student_release.zip
+.DS_Store
+__pycache__/
+INSTRUCTOR_NOTES.md
