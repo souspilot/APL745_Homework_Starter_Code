@@ -1,26 +1,55 @@
-# HW2 — One question: CNNs for anonymous acoustic events (100 marks)
+# HW2 Q2: CNNs for anonymous acoustic events (100 marks)
 
-You are given 360 five-second, mono, 16 kHz audio recordings in `dataset/audio/` and a `dataset/manifest.csv` with columns `id`, `split`, and `label`. The ten labels `C00`–`C09` are arbitrary codes. Your task is to classify the recordings. Use the named `train` split (240 recordings) for fitting, `validation` (80) for model selection, and `test` (40) **once** for final evaluation. The splits are balanced by class. The instructor has a separate, unlabeled-to-you evaluation set. Do not infer a split from the order or names of files.
+You are given 360 five-second, mono, 16 kHz WAV recordings in `dataset/audio/`. The CSV `dataset/manifest.csv` has columns `id,split,label`. Its `train`, `validation`, and `test` splits contain 240, 80, and 40 recordings; each has the same ten classes `C00`–`C09`. The class codes are arbitrary. Use `train` to fit models, `validation` to choose settings and checkpoints, and `test` once for the results in your report. A separate 40-recording set is reserved for instructor grading.
 
-The question has six connected parts. Submit one notebook or a small, reproducible code project, a short report (at most four pages), trained model checkpoints/configurations/seeds, and an inference entry point as described below. Report all choices that materially affect the results. You may use PyTorch or another deep-learning framework, but train the classifiers from scratch; no pretrained audio or vision model. The companion `audio_lab.ipynb` is for exploration and is not a required submission.
+## What to submit
 
-## (a) Represent the same sounds in two ways (15 marks)
+Submit **one ZIP file** whose top level contains these required files; you may add a `src/` directory for helper modules:
 
-1. Load the waveform, check sample rate and duration, scale it to floating point, and show one waveform and one **log-magnitude mel spectrogram** from the same recording. Explain what is retained and lost in each representation, including the role of phase.
-2. State all spectrogram choices: window, hop, FFT length, number of mel bands, frequency range, log compression, and any resizing or normalization. Calculate any normalization statistics on training data only.
-3. Explain why a waveform is suited to `Conv1d` and a time-frequency image to `Conv2d`. State the input tensor shapes.
+```text
+submission.zip
+├── submission.py        # the single executable entry point
+├── requirements.txt     # exact package versions used, one per line
+├── report.pdf           # at most four pages, including figures and tables
+└── src/                 # optional Python modules imported by submission.py
+```
 
-## (b) Train two CNN baselines (20 marks)
+Do not put audio data, model weights, caches, or a virtual environment in the ZIP. Use Python 3.11 and PyTorch. Grading may run without network access and with only a CPU. Your code must not download models or data, use pretrained weights, read the private labels, or depend on the working directory being the data directory. All paths in the command below may be absolute.
 
-Train a small 1D CNN on waveforms and a small 2D CNN on log-mel spectrograms. Each must have at least two convolutional layers, a nonlinearity, downsampling, and a classifier head. Keep the models small enough to train on the supplied data, and document layer-by-layer tensor shapes and parameter counts. Use cross-entropy loss. Use the **same splits and evaluation metric** for both models, and state what makes their comparison imperfect (for example, different input sizes or parameter counts).
+The instructor will unpack your ZIP and run this **single command** from its top level in a fresh environment with your `requirements.txt` installed:
 
-## (c) Modern architecture and regularization (20 marks)
+```bash
+python submission.py \
+  --data-root /path/to/HW2_student/dataset \
+  --predict-manifest /path/to/hidden/input.csv \
+  --predict-audio-dir /path/to/hidden/audio \
+  --output /path/to/predictions.csv \
+  --seed 745
+```
 
-Improve the 2D model using a compact **Inception-style block**: parallel branches with different kernel sizes, at least one `1×1` projection, concatenation along channels, and a global-average-pooling classifier. Show that the branch outputs have compatible spatial sizes and compare its parameter count with a plain convolutional alternative. Use batch normalization after convolution and before the activation, and use dropout in the classifier head. Explain the train/evaluation behavior of batch normalization and dropout, and why augmentation acts differently from either one. You may use a small residual block instead of the Inception-style block if you clearly explain the skip path and dimension matching.
+`--data-root` contains `manifest.csv` and `audio/`. Your script must **start with randomly initialized weights**, train your selected final 2D CNN on `train` only, use `validation` for checkpoint selection, reload that checkpoint, and predict every row in `--predict-manifest`. The hidden input CSV has exactly `id,split` and no labels; the corresponding WAV file is `--predict-audio-dir/<id>`. The split value may be `instructor_test`; your predictor must not require a known split name or a `label` column. Do not fit normalization statistics or tune choices using `test` or the prediction set. The public `test` rows in `--data-root/manifest.csv` must be ignored by this grading command.
 
-## (d) Augmentation and controlled comparison (20 marks)
+On success, create the parent of `--output` if needed, write a UTF-8 CSV with **exactly** the header `id,predicted_label`, and exit with code 0. Write one row per input in the same order, preserving each `id` byte-for-byte. Every prediction must be one of `C00`–`C09`; do not include probabilities, an index column, or extra rows. Use the supplied seed for Python, NumPy, and PyTorch random generators. A run may use at most **30 training epochs** for the final model and has a **15-minute wall-time limit** on the course grading machine. Print the selected epoch and validation accuracy to standard output. The instructor scores hidden accuracy and macro-F1 from the CSV; the report is graded separately. The command above runs the `full` condition by default. The same entry point must also accept `--experiment` with one of `waveform`, `spectrogram`, `full`, `no_bn`, `no_dropout`, or `no_augmentation` to retrain the corresponding report run from scratch using the same path arguments.
 
-Apply at least **two appropriate audio augmentations** to training samples only, such as a short time shift, mild gain change, or low-level additive noise. If you augment spectrograms, explain why the transformation still represents a plausible sound. Do not augment validation or test examples. Keep one fixed training recipe and compare the improved 2D model under these four conditions:
+Exercise the command locally with an unlabeled CSV made from the 40 public `test` IDs. For example, make `public_input.csv` with columns `id,split` and run the same command with `--predict-manifest public_input.csv` and `--predict-audio-dir dataset/audio`. This checks the label-free interface before submission.
+
+## The question
+
+### (a) Represent the sounds (15 marks)
+
+Load and listen to at least one `train` clip. Show its waveform and log-magnitude mel spectrogram. State your FFT length, window, hop, mel-band count, frequency range, log transform, tensor shapes, and any normalization. Compute any fitted statistics on `train` only. Explain what information each representation retains or loses, including phase, and why `Conv1d` and `Conv2d` fit the respective inputs. The optional `audio_lab.ipynb` demonstrates visual exploration.
+
+### (b) Two CNN baselines (20 marks)
+
+Train one waveform `Conv1d` model and one log-mel `Conv2d` model from scratch. Each needs at least two convolutional layers, nonlinearities, downsampling, and a classification head. Report layer-by-layer output shapes and trainable parameter counts. Use cross-entropy loss, the same `train`/`validation` split, and a checkpoint chosen by validation accuracy (break ties using lower validation loss). Explain at least one limitation of comparing their accuracies directly.
+
+### (c) Modern architecture and regularization (20 marks)
+
+Make a compact improved 2D model with either an Inception-style multi-kernel block (including a `1×1` projection and channel concatenation) or a residual block (including a dimension-matched skip path), followed by global average pooling. Use batch normalization after convolution and before activation, plus dropout in the classifier head. Show how the block preserves compatible tensor dimensions, compare its parameter count with a plain convolutional block, and explain training versus evaluation behavior for batch normalization and dropout. The improved model with both regularizers and augmentation is the final model used by `submission.py`.
+
+### (d) Augmentation and ablation (20 marks)
+
+Use at least two plausible audio augmentations on `train` only, for example short shifts, mild gain changes, or low-level noise. State their exact parameter ranges. If an augmentation acts on the spectrogram, explain why the result is acoustically plausible. Run the improved 2D model four times with the same split, preprocessing, epoch limit, checkpoint rule, and seed policy:
 
 | Run | Batch normalization | Dropout | Augmentation |
 | --- | --- | --- | --- |
@@ -29,11 +58,11 @@ Apply at least **two appropriate audio augmentations** to training samples only,
 | No dropout | On | Off | On |
 | No augmentation | On | On | Off |
 
-Use identical splits, preprocessing, epoch budget, seed policy, and checkpoint criterion. Show training and validation loss curves and a compact results table. Discuss overfitting and at least one interaction or limitation of these single-factor ablations. The “Full” run can be the model from part (c).
+Show training and validation loss curves, a table of best validation accuracy and selected epoch for all four runs, and a short explanation of overfitting or an inconclusive result. The grading command runs only **Full**, but the `--experiment` option must reproduce the other five runs through the same entry point.
 
-## (e) Backpropagation through a convolution (15 marks)
+### (e) Backpropagation through a convolution (15 marks)
 
-Frameworks implement CNN backpropagation, but you must work through one case by hand. A single valid 2D **cross-correlation** layer (the convention used by most deep-learning libraries) has input
+Work through a single valid 2D **cross-correlation** layer by hand:
 
 ```text
 X = [[1, 2, 0],       K = [[ 1, 0],       b = 0
@@ -41,14 +70,10 @@ X = [[1, 2, 0],       K = [[ 1, 0],       b = 0
      [2, 1, 1]]
 ```
 
-Let `Z = X ⋆ K + b`, `A = ReLU(Z)`, target `Y = [[1, 0], [1, 2]]`, and `L = 1/2 Σᵢⱼ(Aᵢⱼ − Yᵢⱼ)²`. Compute `Z`, `A`, `L`, `∂L/∂Z`, `∂L/∂K`, and `∂L/∂b`, showing how the same kernel weights accumulate gradients from all output positions. Verify one kernel-gradient entry with an automatic differentiation or finite-difference check. Use the ReLU derivative zero for negative preactivations.
+Let `Z = X ⋆ K + b`, `A = ReLU(Z)`, target `Y = [[1, 0], [1, 2]]`, and `L = 1/2 Σᵢⱼ(Aᵢⱼ − Yᵢⱼ)²`. Compute `Z`, `A`, `L`, `∂L/∂Z`, `∂L/∂K`, and `∂L/∂b`. Show how kernel gradients accumulate from all output positions. Verify one `∂L/∂K` entry using PyTorch autograd or a centered finite difference. Use ReLU derivative zero for negative preactivations.
 
-## (f) Evaluation and interpretation (10 marks)
+### (f) Evaluation and interpretation (10 marks)
 
-Choose hyperparameters using `validation` only. For the selected waveform and spectrogram models, report `test` accuracy, macro-F1, a confusion matrix, and at least two inspected errors. Include runtime or hardware and one limitation of conclusions from this small test set. Do not tune on `test`. Describe whether the learned result supports any claim about waveform versus spectrogram input; distinguish observation from general conclusion.
+For the selected waveform baseline and Full 2D model, report public `test` accuracy, macro-F1, and confusion matrices. Inspect two errors. State hardware, package versions, seed, optimizer, learning rate, batch size, epoch limit, checkpoint rule, and total training time. Explain what the small public test set can and cannot establish about waveform versus spectrogram models. Your `report.pdf` must contain the results and derivation for parts (a)–(f); `submission.py` must satisfy the grading command above.
 
-### Reproducibility and integrity
-
-Include package versions, random seeds, exact train/validation/test counts, preprocessing, optimizer, learning rate, batch size, epoch budget, checkpoint rule, and a command or notebook order that reproduces the results. Files sharing a source recording may be similar; preserve the supplied splits to avoid leakage. Keep class codes in the report. The dataset attribution and license are in `ATTRIBUTION.txt`.
-
-For instructor evaluation, submit a `predict.py` entry point that loads your chosen **spectrogram** model checkpoint and accepts `--audio-dir`, `--manifest`, and `--output`. The input CSV will have `id` and `split` columns but **no labels**; audio files are named by `id`. Write a CSV with exactly `id,predicted_label` (one row per input, using `C00`–`C09`). The instructor will run this on the separate private set. Your code must not retrain or adjust preprocessing statistics during inference. Include a one-line command showing how to run it on the public test set.
+The dataset attribution and license are in `ATTRIBUTION.txt`. Keep the anonymous class codes in your report.

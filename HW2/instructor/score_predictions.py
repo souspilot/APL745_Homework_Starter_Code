@@ -10,9 +10,16 @@ from pathlib import Path
 PRIVATE = Path(__file__).resolve().parents[1] / "instructor_private"
 
 
-def read_rows(path: Path) -> list[dict[str, str]]:
+def read_rows(path: Path, expected_header: list[str]) -> list[dict[str, str]]:
     with path.open(newline="") as f:
-        return list(csv.DictReader(f))
+        reader = csv.DictReader(f)
+        if reader.fieldnames != expected_header:
+            raise ValueError(f"{path.name} must have exactly {','.join(expected_header)} columns in that order")
+        rows = list(reader)
+        if any(set(row) != set(expected_header) or any(value is None or value == "" for value in row.values())
+               for row in rows):
+            raise ValueError(f"{path.name} has an incomplete or extra CSV field")
+        return rows
 
 
 def main() -> None:
@@ -20,11 +27,12 @@ def main() -> None:
     parser.add_argument("predictions", type=Path, help="CSV with id,predicted_label")
     args = parser.parse_args()
 
-    truth_rows = read_rows(PRIVATE / "manifest.csv")
-    pred_rows = read_rows(args.predictions)
+    truth_rows = read_rows(PRIVATE / "manifest.csv", ["id", "split", "label"])
+    input_rows = read_rows(PRIVATE / "input.csv", ["id", "split"])
+    pred_rows = read_rows(args.predictions, ["id", "predicted_label"])
     truth = {row["id"]: row["label"] for row in truth_rows}
-    if not pred_rows or set(pred_rows[0]) != {"id", "predicted_label"}:
-        raise ValueError("Prediction CSV must have exactly id,predicted_label columns")
+    if [row["id"] for row in pred_rows] != [row["id"] for row in input_rows]:
+        raise ValueError("Predictions must have one row per hidden input in the same order")
     pred = {row["id"]: row["predicted_label"] for row in pred_rows}
     if len(pred) != len(pred_rows):
         raise ValueError("Duplicate prediction IDs")
